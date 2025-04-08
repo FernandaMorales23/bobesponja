@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD Bob Esponja</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        h1, h2 {
+            color: #ffcc00;
+            text-shadow: 2px 2px 3px #000;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        button {
+            background-color: #ffcc00;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #ff9900;
+        }
+        .card {
+            background: #ffcc00;
+            color: black;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            text-align: left;
+        }
+        .acciones {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .acciones button {
+            flex: 1;
+            padding: 5px;
+        }
+        .editar {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .eliminar {
+            background-color: #f44336;
+            color: white;
+        }
+        #mensaje {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        .exito {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+    </style>
+</head>
+<body>
+    <h1>CRUD de Personajes de Bob Esponja</h1>
+
+    <div id="mensaje"></div>
+
+    <div class="container">
+        <h2>Registro de Usuario</h2>
+        <form id="registerForm">
+            <input type="text" id="newUsuario" placeholder="Nuevo Usuario" required>
+            <input type="password" id="newPassword" placeholder="Nueva Contraseña" required>
+            <button type="submit">Registrarse</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>Iniciar Sesión</h2>
+        <form id="loginForm">
+            <input type="text" id="usuario" placeholder="Usuario" required>
+            <input type="password" id="password" placeholder="Contraseña" required>
+            <button type="submit">Iniciar sesión</button>
+        </form>
+        <button onclick="logout()">Cerrar Sesión</button>
+    </div>
+
+    <div class="container">
+        <h2>Agregar Personaje</h2>
+        <form id="personajeForm">
+            <input type="text" id="nombre" placeholder="Nombre" required>
+            <input type="number" id="edad" placeholder="Edad" required>
+            <input type="text" id="ocupacion" placeholder="Ocupación" required>
+            <input type="text" id="ciudad" placeholder="Ciudad" required>
+            <input type="text" id="color" placeholder="Color favorito" required>
+            <input type="text" id="tipo" placeholder="Tipo" required>
+            <input type="text" id="habilidad" placeholder="Habilidad" required>
+            <input type="text" id="frase" placeholder="Frase" required>
+            <input type="hidden" id="personajeId" value="">
+            <button type="submit" id="submitBtn">Agregar</button>
+            <button type="button" id="cancelBtn" style="display:none;" onclick="cancelarEdicion()">Cancelar</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>Lista de Personajes</h2>
+        <button onclick="cargarPersonajes()">Actualizar Lista</button>
+        <div id="listaPersonajes"></div>
+    </div>
+
+    <script>
+        function mostrarMensaje(mensaje, tipo) {
+            const mensajeDiv = document.getElementById("mensaje");
+            mensajeDiv.textContent = mensaje;
+            mensajeDiv.className = tipo;
+            mensajeDiv.style.display = "block";
+            
+            setTimeout(() => {
+                mensajeDiv.style.display = "none";
+            }, 3000);
+        }
+
+        function manejarRespuesta(response) {
+            if (!response.ok) {
+                return response.text().then(texto => {
+                    throw new Error(texto);
+                });
+            }
+            return response.text();
+        }
+
+        document.getElementById("registerForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            fetch("/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    usuario: document.getElementById("newUsuario").value,
+                    password: document.getElementById("newPassword").value
+                })
+            })
+            .then(manejarRespuesta)
+            .then(respuesta => {
+                mostrarMensaje(respuesta, "exito");
+                document.getElementById("registerForm").reset();
+            })
+            .catch(error => {
+                mostrarMensaje(error.message, "error");
+            });
+        });
+
+        document.getElementById("loginForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    usuario: document.getElementById("usuario").value,
+                    password: document.getElementById("password").value
+                })
+            })
+            .then(manejarRespuesta)
+            .then(respuesta => {
+                mostrarMensaje(respuesta, "exito");
+                document.getElementById("loginForm").reset();
+                cargarPersonajes();
+            })
+            .catch(error => {
+                mostrarMensaje(error.message, "error");
+            });
+        });
+
+        function logout() {
+            fetch("/logout", {
+                credentials: 'include'
+            })
+            .then(manejarRespuesta)
+            .then(respuesta => {
+                mostrarMensaje(respuesta, "exito");
+                document.getElementById("listaPersonajes").innerHTML = "";
+            })
+            .catch(error => {
+                mostrarMensaje(error.message, "error");
+            });
+        }
+
+        document.getElementById("personajeForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            const personajeId = document.getElementById("personajeId").value;
+            const personajeData = {
+                nombre: document.getElementById("nombre").value,
+                edad: document.getElementById("edad").value,
+                ocupacion: document.getElementById("ocupacion").value,
+                ciudad: document.getElementById("ciudad").value,
+                color: document.getElementById("color").value,
+                tipo: document.getElementById("tipo").value,
+                habilidad: document.getElementById("habilidad").value,
+                frase: document.getElementById("frase").value
+            };
+            
+            let url = "/agregarPersonaje";
+            let method = "POST";
+            
+            if (personajeId) {
+                url = `/actualizarPersonaje/${personajeId}`;
+                method = "PUT";
+            }
+            
+            fetch(url, {
+                method: method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(personajeData),
+                credentials: 'include'
+            })
+            .then(manejarRespuesta)
+            .then(respuesta => {
+                mostrarMensaje(respuesta, "exito");
+                document.getElementById("personajeForm").reset();
+                document.getElementById("personajeId").value = "";
+                document.getElementById("submitBtn").textContent = "Agregar";
+                document.getElementById("cancelBtn").style.display = "none";
+                cargarPersonajes();
+            })
+            .catch(error => {
+                mostrarMensaje(error.message, "error");
+            });
+        });
+
+        function cancelarEdicion() {
+            document.getElementById("personajeForm").reset();
+            document.getElementById("personajeId").value = "";
+            document.getElementById("submitBtn").textContent = "Agregar";
+            document.getElementById("cancelBtn").style.display = "none";
+        }
+
+        function cargarPersonajes() {
+            fetch("/obtenerPersonajes", {
+                credentials: 'include'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error("Debes iniciar sesión para ver los personajes");
+                    } else {
+                        throw new Error("Error al obtener personajes");
+                    }
+                }
+                return response.json();
+            })
+            .then(personajes => {
+                const listaDiv = document.getElementById("listaPersonajes");
+                listaDiv.innerHTML = "";
+                
+                if (personajes.length === 0) {
+                    listaDiv.innerHTML = "<p>No hay personajes registrados</p>";
+                    return;
+                }
+                
+                personajes.forEach(personaje => {
+                    const card = document.createElement("div");
+                    card.className = "card";
+                    card.innerHTML = `
+                        <h3>${personaje.nombre}</h3>
+                        <p><strong>Edad:</strong> ${personaje.edad}</p>
+                        <p><strong>Ocupación:</strong> ${personaje.ocupacion}</p>
+                        <p><strong>Ciudad:</strong> ${personaje.ciudad}</p>
+                        <p><strong>Color:</strong> ${personaje.color}</p>
+                        <p><strong>Tipo:</strong> ${personaje.tipo}</p>
+                        <p><strong>Habilidad:</strong> ${personaje.habilidad}</p>
+                        <p><strong>Frase:</strong> ${personaje.frase}</p>
+                        <div class="acciones">
+                            <button class="editar" onclick="editarPersonaje(${personaje.id})">Editar</button>
+                            <button class="eliminar" onclick="eliminarPersonaje(${personaje.id})">Eliminar</button>
+                        </div>
+                    `;
+                    listaDiv.appendChild(card);
+                });
+            })
+            .catch(error => {
+                mostrarMensaje(error.message, "error");
+            });
+        }
+
+        function editarPersonaje(id) {
+            fetch(`/obtenerPersonajes`, {
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(personajes => {
+                const personaje = personajes.find(p => p.id === id);
+                if (personaje) {
+                    document.getElementById("nombre").value = personaje.nombre;
+                    document.getElementById("edad").value = personaje.edad;
+                    document.getElementById("ocupacion").value = personaje.ocupacion;
+                    document.getElementById("ciudad").value = personaje.ciudad;
+                    document.getElementById("color").value = personaje.color;
+                    document.getElementById("tipo").value = personaje.tipo;
+                    document.getElementById("habilidad").value = personaje.habilidad;
+                    document.getElementById("frase").value = personaje.frase;
+                    document.getElementById("personajeId").value = personaje.id;
+                    
+                    document.getElementById("submitBtn").textContent = "Actualizar";
+                    document.getElementById("cancelBtn").style.display = "block";
+                
+                    document.getElementById("personajeForm").scrollIntoView({ behavior: 'smooth' });
+                }
+            })
+            .catch(error => {
+                mostrarMensaje("Error al obtener datos del personaje", "error");
+            });
+        }
+
+        function eliminarPersonaje(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar este personaje?")) {
+                fetch(`/eliminarPersonaje/${id}`, {
+                    method: "DELETE",
+                    credentials: 'include'
+                })
+                .then(manejarRespuesta)
+                .then(respuesta => {
+                    mostrarMensaje(respuesta, "exito");
+                    cargarPersonajes();
+                })
+                .catch(error => {
+                    mostrarMensaje(error.message, "error");
+                });
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            cargarPersonajes();
+        });
+    </script>
+</body>
+</html>
